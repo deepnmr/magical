@@ -44,7 +44,9 @@ DISTANCE_LIMITS = 7 10
 SCORE_TOL_END = true
 ```
 
-A worked example lives in [`tmp_synthetic/`](tmp_synthetic/).
+A realistic worked example (192 methyls, from PDB 1ANF) lives in
+[`examples/mbp/`](examples/mbp/); a 3-line smoke-test example is in
+[`tmp_synthetic/`](tmp_synthetic/).
 
 ## Package layout
 

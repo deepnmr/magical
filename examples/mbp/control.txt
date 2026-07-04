@@ -1,0 +1,9 @@
+HMQC = hmqc.list
+NOESY = noesy.list
+PDB = model.pdb
+SEQ = seq.txt
+LABELING = A;I,CD1;L,CD1,CD2;M;T;V,CG1,CG2
+GEMINAL = 1
+CUTOFF_FACTOR = 1.0
+DISTANCE_LIMITS = 7 10
+SCORE_TOL_END = true

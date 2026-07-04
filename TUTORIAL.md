@@ -59,16 +59,25 @@ python3 -m pip install --user numpy psutil
 
 ---
 
-## Step 3. Run the bundled example
+## Step 3. Run the bundled example (maltose-binding protein)
 
-The repo ships a tiny 3-residue example in `tmp_synthetic/`. Run it:
+The repo ships a realistic example in `examples/mbp/` — **192 methyl peaks**
+built from the real 3D structure of maltose-binding protein (PDB 1ANF). Run it:
 
 ```bash
-python3 -m magic run tmp_synthetic/control.txt --output-dir first_run
+python3 -m magic run examples/mbp/control.txt --output-dir first_run
 ```
 
-You should see no errors. A new folder `first_run/` appears containing `Input/`
+It takes ~20 seconds. A new folder `first_run/` appears containing `Input/`
 (a copy of what you fed in) and `Output/` (the results).
+
+> **Heads-up:** `examples/mbp/` is a *synthetic* dataset — real coordinates from
+> 1ANF, but the peak lists are generated from them (see
+> [`examples/mbp/README.md`](examples/mbp/README.md)). It shows the tool at real
+> scale; it is not experimental biology.
+>
+> Want an instant smoke test instead? There is also a tiny 3-residue example:
+> `python3 -m magic run tmp_synthetic/control.txt --output-dir tiny_run`.
 
 > **Note:** the output folder must not already exist — MAGIC refuses to
 > overwrite. If you re-run, use a new `--output-dir` name (`first_run2`, …) or
@@ -78,17 +87,19 @@ You should see no errors. A new folder `first_run/` appears containing `Input/`
 
 ## Step 4. Read the results
 
-Look at the main answer:
+Look at the main answer (first few rows):
 
 ```bash
-cat first_run/Output/assignments.tsv
+head first_run/Output/assignments.tsv
 ```
 
 ```
 peak_id  carbon_shift  proton_shift  best_assignment  alternatives  overlap_degree
-P1       20.000        0.900         A1CB             A1CB          0
-P2       13.000        0.800         I2CD1            I2CD1         0
-P3       24.000        1.100         T3CG2            T3CG2         0
+P1       25.544        0.748         L135CD           L135CD        7
+P2       24.588        0.676         L280CD           L280CD        10
+P3       20.132        0.955         V50CG            V50CG         2
+P4       19.176        0.883         V259CG           V259CG        5
+P5       14.720        0.711         I108CD1          I108CD1       3
 ```
 
 How to read it, column by column:
@@ -97,11 +108,11 @@ How to read it, column by column:
 |---|---|
 | `peak_id` | the peak name from your HMQC list |
 | `carbon_shift`, `proton_shift` | that peak's ¹³C / ¹H chemical shifts |
-| `best_assignment` | **the answer** — which methyl site the peak maps to (e.g. `A1CB` = Ala 1, atom CB) |
+| `best_assignment` | **the answer** — which methyl site the peak maps to (e.g. `L135CD` = Leu 135, atom CD) |
 | `alternatives` | other plausible sites, if the data was ambiguous |
-| `overlap_degree` | how many other peaks sit on top of this one (0 = clean) |
+| `overlap_degree` | how many other peaks sit near this one (higher = more crowded region) |
 
-So here: peak `P1` is Ala1's CB methyl, `P2` is Ile2's CD1, `P3` is Thr3's CG2.
+So peak `P1` is Leu135's CD methyl, `P5` is Ile108's CD1, and so on.
 
 Other output files (nice to know, not essential):
 
@@ -117,22 +128,23 @@ cat first_run/Output/summary.json
 
 ```json
 {
-  "num_peaks": 3,
-  "num_methyl_sites": 3,
-  "num_assigned_peaks": 3,
-  "best_score": 5.255411255411255,
+  "num_peaks": 192,
+  "num_methyl_sites": 142,
+  "num_assigned_peaks": 192,
+  "best_score": 1867.36,
   ...
 }
 ```
 
-`num_assigned_peaks` = 3 of 3 → everything got assigned. 🎉
+`num_assigned_peaks` = 192 of 192 → every peak got assigned. 🎉
 
 ---
 
 ## Step 5. Understand the input files
 
-Open `tmp_synthetic/` and look at each file. This is what you will replace with
-your own data later.
+Open `examples/mbp/` and look at each file (the tiny `tmp_synthetic/` files show
+the exact same formats with just 3 lines each, if you prefer something you can
+read at a glance). This is what you will replace with your own data later.
 
 ### 5a. `control.txt` — the recipe
 
@@ -226,15 +238,15 @@ Before a real run, check that your control file and all referenced files exist
 and parse:
 
 ```bash
-python3 -m magic validate tmp_synthetic/control.txt
+python3 -m magic validate examples/mbp/control.txt
 ```
 
 ```
-Control file OK: .../tmp_synthetic/control.txt
-HMQC: .../tmp_synthetic/hmqc.list
-PDB:  .../tmp_synthetic/model.pdb
-SEQ:  .../tmp_synthetic/seq.txt
-NOESY: .../tmp_synthetic/noesy.list
+Control file OK: .../examples/mbp/control.txt
+HMQC: .../examples/mbp/hmqc.list
+PDB:  .../examples/mbp/model.pdb
+SEQ:  .../examples/mbp/seq.txt
+NOESY: .../examples/mbp/noesy.list
 ```
 
 If a file is missing or a field is malformed, it tells you here instead of
