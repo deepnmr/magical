@@ -1,0 +1,21 @@
+# virtualenv
+.venv/
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+
+# copyrighted paper (not for redistribution)
+s10858-017-0149-y.pdf
+
+# scratch run outputs
+tmp_verify_run/
+tmp_synthetic_run/
+tmp_synthetic_run_2/
+tmp_verify/
+magic_*/
+cnt_*/
+ph2_*/
+ph_*/
+par_*/
