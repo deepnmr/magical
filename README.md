@@ -4,6 +4,8 @@ Clean-room implementation of the **MAGIC** methyl-NMR automated assignment
 workflow (Monneau et al. 2017), with a modular package layout and an optimized,
 output-preserving assignment search.
 
+New here? Start with the **[step-by-step tutorial](TUTORIAL.md)**.
+
 ## Install
 
 ```bash
