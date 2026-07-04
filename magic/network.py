@@ -43,12 +43,6 @@ def count_shared_noes(strip_left: Sequence[NoePeak], strip_right: Sequence[NoePe
   return shared
 
 
-def mirrored_shift_delta(strip: Sequence[NoePeak], target_shift: float, tolerance: float) -> float:
-  if not strip:
-    return tolerance
-  return min([abs(peak.donor_carbon - target_shift) for peak in strip] + [tolerance])
-
-
 def build_single_experiment_matrices(
   peaks: Sequence[HMQCPeak],
   experiment: NoesyExperiment,
@@ -59,7 +53,6 @@ def build_single_experiment_matrices(
   score = np.zeros((size, size), dtype=float)
   strips = assign_noes_to_strips(peaks, experiment)
   shared_matrix = np.zeros((size, size), dtype=int)
-  mirrored_matrix = np.full((size, size), experiment.donor_carbon_tolerance, dtype=float)
 
   for acceptor_index in range(size):
     for donor_index in range(size):
@@ -68,11 +61,6 @@ def build_single_experiment_matrices(
       shared_matrix[acceptor_index, donor_index] = count_shared_noes(
         strips[acceptor_index],
         strips[donor_index],
-        experiment.donor_carbon_tolerance,
-      )
-      mirrored_matrix[acceptor_index, donor_index] = mirrored_shift_delta(
-        strips[donor_index],
-        peaks[acceptor_index].carbon_shift,
         experiment.donor_carbon_tolerance,
       )
 
@@ -91,12 +79,16 @@ def build_single_experiment_matrices(
       ]
       donor_count = max(1, len(donor_candidates))
       for donor_index in donor_candidates:
-        delta_primary = abs(noe_peak.donor_carbon - peaks[donor_index].carbon_shift)
-        delta_secondary = mirrored_matrix[acceptor.index, donor_index]
-        delta_rms = max(0.05, math.sqrt(delta_primary ** 2 + delta_secondary ** 2))
+        # <Delta delta>_ij = sqrt((delta_i^noe - delta_i^hmqc)^2 + (delta_j^noe - delta_j^hmqc)^2)
+        # i = acceptor (its HMQC carbon vs the NOE reference carbon),
+        # j = donor    (its HMQC carbon vs the NOE donor carbon).  Floored at 0.05.
+        delta_donor = abs(noe_peak.donor_carbon - peaks[donor_index].carbon_shift)
+        delta_acceptor = abs(noe_peak.ref_carbon - acceptor.carbon_shift)
+        delta_rms = max(0.05, math.sqrt(delta_donor ** 2 + delta_acceptor ** 2))
         phi_cs = 20.0 * delta_rms
         shared_noes = int(shared_matrix[acceptor.index, donor_index])
-        confidence_no_overlap = math.sqrt(((1 + shared_noes) ** 2) / (donor_count * phi_cs))
+        # Eq (1): P_ij = sqrt( phi_over/phi_cs * ((1 + N_noe)/N'_donor)^2 ), phi_over = 1 for scoring.
+        confidence_no_overlap = math.sqrt(((1 + shared_noes) ** 2) / (donor_count ** 2 * phi_cs))
         confidence_with_overlap = 0.0 if overlap_groups[donor_index] else confidence_no_overlap
         score_value = confidence_no_overlap * (noe_peak.intensity / strip_total_intensity)
 

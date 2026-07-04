@@ -14,6 +14,7 @@ from .search import (
   cluster_membership,
   cluster_size_threshold,
   connected_orphan_order,
+  expand_global_with_cluster,
   mapping_score,
   merge_hypothesis_sets,
   prune_hypotheses,
@@ -161,33 +162,28 @@ def run_magic(control_file, output_dir=None):
   site_capacities = {site.index: site.capacity for site in inputs.methyl_sites}
   global_hypotheses = _initial_hypotheses(candidate_map, inputs.hmqc_peaks, network.score_matrix, model_matrix)
 
-  local_results = {}
+  # Iterative T_C protocol (paper Fig. 3): process clusters from densest
+  # (highest P^2 threshold, smallest clusters) to sparsest, carrying the running
+  # global assignment forward so each cluster only permutes its still-unassigned
+  # peaks against the current assignment.
+  processed = set()
   for tc_value in _unique_thresholds(network.density_matrix):
     threshold_size = cluster_size_threshold(tc_value)
     for seed_index in range(len(inputs.hmqc_peaks)):
       cluster = cluster_membership(network.adjacency_matrix, network.density_matrix, seed_index, tc_value)
-      if len(cluster) < threshold_size:
+      if len(cluster) < threshold_size or cluster in processed:
         continue
-      if cluster not in local_results:
-        local_results[cluster] = solve_local_cluster(
-          cluster,
-          candidate_map=candidate_map,
-          site_capacities=site_capacities,
-          score_matrix=network.score_matrix,
-          model_matrix=model_matrix,
-          total_peaks=len(inputs.hmqc_peaks),
-          score_factor=inputs.score_factor,
-        )
-
-  global_hypotheses = _merge_clusters(
-    global_hypotheses,
-    list(local_results.values()),
-    site_capacities=site_capacities,
-    score_matrix=network.score_matrix,
-    model_matrix=model_matrix,
-    total_peaks=len(inputs.hmqc_peaks),
-    score_factor=inputs.score_factor,
-  )
+      processed.add(cluster)
+      global_hypotheses = expand_global_with_cluster(
+        global_hypotheses,
+        cluster,
+        candidate_map=candidate_map,
+        site_capacities=site_capacities,
+        score_matrix=network.score_matrix,
+        model_matrix=model_matrix,
+        total_peaks=len(inputs.hmqc_peaks),
+        score_factor=inputs.score_factor,
+      )
   global_hypotheses = _assign_orphans(
     global_hypotheses,
     inputs.hmqc_peaks,

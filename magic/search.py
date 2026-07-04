@@ -145,6 +145,91 @@ def _keep_cutoff(best_score: float, slack: float) -> float:
 SOLVE_NODE_BUDGET = 1_000_000
 
 
+def expand_global_with_cluster(
+  base_hypotheses: Sequence[AssignmentHypothesis],
+  cluster_peaks: Tuple[int, ...],
+  candidate_map: Dict[int, Tuple[int, ...]],
+  site_capacities: Dict[int, int],
+  score_matrix: np.ndarray,
+  model_matrix: np.ndarray,
+  total_peaks: int,
+  score_factor: float,
+  max_keep: int = 256,
+  node_budget: int = 300_000,
+) -> List[AssignmentHypothesis]:
+  """Grow each carried-forward global assignment by one peak cluster.
+
+  Faithful to the paper's iterative T_C protocol: clusters are processed from
+  densest (smallest) to sparsest, and each cluster only permutes the peaks it
+  adds that are *not already assigned* in a given global hypothesis.  This keeps
+  the exhaustive local search bounded (later, larger clusters have most of their
+  peaks fixed by earlier dense clusters) instead of solving every cluster from
+  scratch.
+  """
+
+  if not base_hypotheses:
+    return []
+  # Loosest keep-band, so branch-and-bound never prunes a hypothesis that the
+  # final prune_hypotheses would retain.
+  slack = relative_score_slack(score_factor, 0.0)
+  best_score = [max(h.score for h in base_hypotheses)]
+  results: List[AssignmentHypothesis] = []
+  leaves = [0]
+
+  for base in base_hypotheses:
+    base_mapping = base.mapping
+    free_peaks = [p for p in cluster_peaks if p not in base_mapping]
+    if not free_peaks:
+      results.append(base)
+      continue
+    ordered = sorted(free_peaks, key=lambda p: (len(candidate_map[p]), p))
+    placed_peaks = list(base_mapping.keys())
+    placed_sites = list(base_mapping.values())
+    usage = Counter(base_mapping.values())
+    mapping = dict(base_mapping)
+    stop = [False]
+
+    def backtrack(depth, running):
+      if stop[0]:
+        return
+      if depth == len(ordered):
+        best_score[0] = max(best_score[0], running)
+        results.append(AssignmentHypothesis(mapping=dict(mapping), score=running))
+        leaves[0] += 1
+        if leaves[0] >= node_budget:
+          stop[0] = True
+        return
+      peak = ordered[depth]
+      cutoff = _keep_cutoff(best_score[0], slack)
+      for site in candidate_map[peak]:
+        if usage[site] >= site_capacities[site]:
+          continue
+        delta = float(score_matrix[peak, peak] * model_matrix[site, site])
+        for q, sq in zip(placed_peaks, placed_sites):
+          delta += float(score_matrix[peak, q] * model_matrix[site, sq])
+          delta += float(score_matrix[q, peak] * model_matrix[sq, site])
+        new_running = running + delta
+        # optimistic: remaining peaks add >= 0, so new_running is an upper bound only
+        # loosely; prune when even the current partial cannot reach the band.
+        if new_running < cutoff and depth == len(ordered) - 1:
+          continue
+        usage[site] += 1
+        mapping[peak] = site
+        placed_peaks.append(peak)
+        placed_sites.append(site)
+        backtrack(depth + 1, new_running)
+        placed_peaks.pop()
+        placed_sites.pop()
+        usage[site] -= 1
+        del mapping[peak]
+        if stop[0]:
+          break
+
+    backtrack(0, base.score)
+
+  return prune_hypotheses(results, total_peaks=total_peaks, score_factor=score_factor, max_keep=max_keep)
+
+
 def solve_local_cluster(
   cluster_peaks: Tuple[int, ...],
   candidate_map: Dict[int, Tuple[int, ...]],
