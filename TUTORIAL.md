@@ -71,10 +71,12 @@ python3 -m magic run examples/mbp/control.txt --output-dir first_run
 It takes ~20 seconds. A new folder `first_run/` appears containing `Input/`
 (a copy of what you fed in) and `Output/` (the results).
 
-> **Heads-up:** `examples/mbp/` is a *synthetic* dataset — real coordinates from
-> 1ANF, but the peak lists are generated from them (see
-> [`examples/mbp/README.md`](examples/mbp/README.md)). It shows the tool at real
-> scale; it is not experimental biology.
+> **Heads-up — this example is a speed/scale demo, not a correct assignment.**
+> `examples/mbp/` uses real 1ANF coordinates but **synthetic** peak lists (shifts
+> are type-based + jitter). Because same-type shifts nearly overlap, the run
+> recovers only ~7% of the generation truth, and its output **cannot** be compared
+> to experimental data (BMRB). See [`examples/mbp/README.md`](examples/mbp/README.md).
+> Treat the table below as a format walkthrough, not biology.
 >
 > Want an instant smoke test instead? There is also a tiny 3-residue example:
 > `python3 -m magic run tmp_synthetic/control.txt --output-dir tiny_run`.
